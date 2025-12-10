@@ -1,35 +1,30 @@
-# Estágio 1: Build
+# Estágio 1: Build (Construção)
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copia dependências
+# Copia os arquivos de dependência
 COPY package*.json ./
 RUN npm install
 
-# Copia o código fonte
+# Copia o código do projeto
 COPY . .
 
-# --- O TRUQUE ESTÁ AQUI ---
-# Declaramos que vamos receber esses argumentos na hora do build
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
+# --- CHAVES DO SUPABASE DEFINIDAS AQUI ---
+ENV VITE_SUPABASE_URL="https://klrtqqxrdijporxqdziw.supabase.co"
+ENV VITE_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtscnRxcXhyZGlqcG9yeHFkeml3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjE3NDMsImV4cCI6MjA3NzIzNzc0M30.2meBUmwtvDGUyJ8GWEZNvrL7CLEMnA2Q8UqZIGsfNpY"
+# -----------------------------------------
 
-# Transformamos os argumentos em variáveis de ambiente para o build
-ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
-ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
-# -------------------------
-
-# Gera a pasta dist/ com as chaves já embutidas
+# Gera a pasta dist/
 RUN npm run build
 
 # Estágio 2: Servidor (Nginx)
 FROM nginx:alpine
 
-# Copia o build pronto para o Nginx
+# Copia o site pronto
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Configuração para React Router (evita erro 404 ao atualizar página)
+# Configuração do Nginx (Anti-Erro 404)
 RUN echo 'server { \
     listen 80; \
     location / { \
