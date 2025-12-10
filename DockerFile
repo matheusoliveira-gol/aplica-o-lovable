@@ -1,23 +1,44 @@
-# Usa a imagem base oficial do Node.js
-FROM node:18-alpine
+# Estágio 1: Build
+FROM node:20-alpine AS builder
 
-# Define o diretório de trabalho dentro do container
 WORKDIR /app
 
-# Copia os arquivos de dependência do seu projeto para o container
+# Copia dependências
 COPY package*.json ./
+RUN npm install
 
-# Instala as dependências de produção
-RUN npm ci --only=production
-
-# Copia o restante do código da aplicação
+# Copia o código fonte
 COPY . .
 
-# Constrói a aplicação (gera os arquivos estáticos para produção)
+# --- O TRUQUE ESTÁ AQUI ---
+# Declaramos que vamos receber esses argumentos na hora do build
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+
+# Transformamos os argumentos em variáveis de ambiente para o build
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+# -------------------------
+
+# Gera a pasta dist/ com as chaves já embutidas
 RUN npm run build
 
-# Expõe a porta em que a aplicação será executada
-EXPOSE 3000
+# Estágio 2: Servidor (Nginx)
+FROM nginx:alpine
 
-# Define o comando para iniciar a aplicação
-CMD ["npm", "start"]
+# Copia o build pronto para o Nginx
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Configuração para React Router (evita erro 404 ao atualizar página)
+RUN echo 'server { \
+    listen 80; \
+    location / { \
+        root /usr/share/nginx/html; \
+        index index.html index.htm; \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
