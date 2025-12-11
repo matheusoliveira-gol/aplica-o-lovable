@@ -1,37 +1,39 @@
-# Estágio de Build
+# Estágio 1: Build (Construção)
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copia apenas os arquivos de dependência primeiro para aproveitar o cache do Docker
+# Copia os arquivos de dependência
 COPY package*.json ./
-
-# Instala dependências (usar ci é mais seguro para builds, ou install --legacy-peer-deps se der erro)
 RUN npm install
 
-# Copia o restante do código
+# Copia o código do projeto
 COPY . .
 
-# Argumentos de build (passados via terminal)
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
+# --- CHAVES DO SUPABASE DEFINIDAS AQUI ---
+ENV VITE_SUPABASE_URL="https://klrtqqxrdijporxqdziw.supabase.co"
+ENV VITE_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtscnRxcXhyZGlqcG9yeHFkeml3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjE3NDMsImV4cCI6MjA3NzIzNzc0M30.2meBUmwtvDGUyJ8GWEZNvrL7CLEMnA2Q8UqZIGsfNpY"
+# -----------------------------------------
 
-# Define as variáveis de ambiente para o momento do build do Vite
-ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
-ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
-
-# Executa o build (Se houver erro de TypeScript aqui, veja a observação abaixo)
+# Gera a pasta dist/
 RUN npm run build
 
-# Estágio de Execução (Nginx)
+# Estágio 2: Servidor (Nginx)
 FROM nginx:alpine
 
-# Copia o arquivo de configuração que criamos no Passo 1
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Copia os arquivos estáticos gerados pelo build (pasta dist)
+# Copia o site pronto
 COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Configuração do Nginx (Anti-Erro 404)
+RUN echo 'server { \
+    listen 80; \
+    location / { \
+        root /usr/share/nginx/html; \
+        index index.html index.htm; \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"
+CMD ["nginx", "-g", "daemon off;"]
