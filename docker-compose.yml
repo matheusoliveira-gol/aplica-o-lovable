@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./server
+    container_name: golfind-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      # Substitua pelas suas chaves REAIS ou use um arquivo .env
+      - ENCRYPTION_KEY=CHAVE_DE_32_CARACTERES_AQUI_!!!
+      - JWT_SECRET=SEGREDO_SUPER_SECRETO_AQUI
+    volumes:
+      # IMPORTANTE: Persistir o banco de dados fora do container
+      - ./server/golfind.db:/app/golfind.db
+    restart: always
+
+  frontend:
+    build: .
+    container_name: golfind-frontend
+    ports:
+      - "8080:80" # O site estará acessível em localhost:8080
+    depends_on:
+      - backend
+    restart: always
